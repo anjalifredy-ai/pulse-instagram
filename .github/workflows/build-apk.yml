@@ -24,12 +24,13 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.24.5'
           channel: 'stable'
           cache: true
 
       - name: Generate Android platform files
         run: |
-          flutter create . --platforms=android --org com.pulse.instagram --project-name pulse_instagram
+          flutter create . --platforms=android --org com.pulse.instagram --project-name pulse_instagram --overwrite
 
       - name: Install dependencies
         run: flutter pub get
