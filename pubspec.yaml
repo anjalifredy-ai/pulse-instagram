@@ -1,0 +1,65 @@
+name: pulse_instagram
+description: Professional Instagram-style social app - premium UI, Reels, Stories, Chats, WebRTC. Own data only.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI & Icons
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10+1
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Video / Reels
+  video_player: ^2.9.1
+  chewie: ^1.8.1
+
+  # WebRTC (for calling)
+  flutter_webrtc: ^0.11.7
+
+  # Utils
+  intl: ^0.19.0
+  uuid: ^4.4.2
+  timeago: ^3.6.1
+  image_picker: ^1.1.2
+
+  # Backend (will integrate later)
+  # firebase_core: ^3.3.0
+  # cloud_firestore: ^5.2.0
+  # firebase_auth: ^5.1.2
+  # firebase_storage: ^12.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  riverpod_generator: ^2.4.0
+  build_runner: ^2.4.11
+  custom_lint: ^0.6.4
+  riverpod_lint: ^2.3.10
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  # fonts:
+  #   - family: Instagram
+  #     fonts:
+  #       - asset: assets/fonts/...
