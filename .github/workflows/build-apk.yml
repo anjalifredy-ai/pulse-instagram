@@ -27,9 +27,13 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Generate Android platform files
+      - name: Generate Android platform (only if missing)
         run: |
-          flutter create . --platforms=android --org com.pulse.instagram --project-name pulse_instagram --overwrite
+          if [ ! -d "android" ]; then
+            flutter create . --platforms=android --org com.pulse.instagram --project-name pulse_instagram
+          else
+            echo "android/ folder already exists, skipping create"
+          fi
 
       - name: Install dependencies
         run: flutter pub get
