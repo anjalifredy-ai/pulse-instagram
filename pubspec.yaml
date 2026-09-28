@@ -28,8 +28,8 @@ dependencies:
   video_player: ^2.9.1
   chewie: ^1.8.1
 
-  # WebRTC (for calling)
-  flutter_webrtc: ^0.11.7
+  # WebRTC (for calling) - upgraded for Flutter 3.47 compatibility
+  flutter_webrtc: ^0.12.1+hotfix.1
 
   # Utils
   intl: ^0.19.0
@@ -58,8 +58,3 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
-
-  # fonts:
-  #   - family: Instagram
-  #     fonts:
-  #       - asset: assets/fonts/...
