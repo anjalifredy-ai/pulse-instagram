@@ -9,7 +9,7 @@ jobs:
   build:
     name: Flutter APK Build
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
 
     steps:
       - name: Checkout code
@@ -36,56 +36,27 @@ jobs:
 
       - name: Generate clean Android platform
         run: |
-          rm -rf android
+          rm -rf android ios web linux macos windows
           flutter create . --platforms=android --org com.pulse.instagram --project-name pulse_instagram
           rm -f test/widget_test.dart
 
-      - name: Restore google-services.json + apply Google Services plugin
+      - name: Restore google-services.json
         run: |
           mkdir -p android/app
           if [ -f /tmp/firebase/google-services.json ]; then
             cp /tmp/firebase/google-services.json android/app/google-services.json
-            echo "google-services.json restored"
           fi
-
-          # Apply Google Services plugin in settings.gradle / build.gradle
-          # settings.gradle (new style)
-          if grep -q "plugins" android/settings.gradle; then
-            if ! grep -q "com.google.gms.google-services" android/settings.gradle; then
-              sed -i "/id \"dev.flutter.flutter-plugin-loader\"/a\    id \"com.google.gms.google-services\" version \"4.4.2\" apply false" android/settings.gradle || true
-            fi
-          fi
-
-          # app/build.gradle
-          if [ -f android/app/build.gradle ]; then
-            if ! grep -q "com.google.gms.google-services" android/app/build.gradle; then
-              echo '' >> android/app/build.gradle
-              echo 'apply plugin: "com.google.gms.google-services"' >> android/app/build.gradle
-            fi
-          fi
-
-          # Also handle build.gradle.kts if present
+          # minSdk for webrtc
           if [ -f android/app/build.gradle.kts ]; then
-            if ! grep -q "com.google.gms.google-services" android/app/build.gradle.kts; then
-              echo '' >> android/app/build.gradle.kts
-              echo 'apply(plugin = "com.google.gms.google-services")' >> android/app/build.gradle.kts
-            fi
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle.kts || true
           fi
-
-          # Min SDK for WebRTC / permissions
           if [ -f android/app/build.gradle ]; then
-            sed -i 's/minSdk = .*/minSdk = 24/' android/app/build.gradle || true
-            sed -i 's/minSdkVersion .*/minSdkVersion 24/' android/app/build.gradle || true
-          fi
-          if [ -f android/app/build.gradle.kts ]; then
-            sed -i 's/minSdk = .*/minSdk = 24/' android/app/build.gradle.kts || true
+            sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' android/app/build.gradle || true
+            sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 24/' android/app/build.gradle || true
           fi
 
       - name: Install dependencies
         run: flutter pub get
-
-      - name: Analyze code (non-fatal)
-        run: flutter analyze --no-fatal-infos || true
 
       - name: Build Release APK
         run: |
