@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
-import '../../services/dummy_data.dart';
+import '../../services/youtube_service.dart';
+import '../channel/channel_profile_screen.dart';
 
 class ReelsScreen extends ConsumerStatefulWidget {
   const ReelsScreen({super.key});
@@ -13,43 +15,187 @@ class ReelsScreen extends ConsumerStatefulWidget {
 
 class _ReelsScreenState extends ConsumerState<ReelsScreen> {
   final PageController _pageController = PageController();
+  final YoutubeService _youtube = YoutubeService();
+
+  List<Map<String, dynamic>> _shorts = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  String? _nextPageToken;
+
+  // Keep controllers for visible pages only
+  final Map<int, YoutubePlayerController> _controllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitial();
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() => _loading = true);
+    final list = await _youtube.getTrendingShorts();
+    if (mounted) {
+      setState(() {
+        _shorts = list;
+        _nextPageToken = list.isNotEmpty ? list.last['nextPageToken'] : null;
+        _loading = false;
+      });
+      if (_shorts.isNotEmpty) _initController(0);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || _nextPageToken == null) return;
+    setState(() => _loadingMore = true);
+    final more = await _youtube.getTrendingShorts(pageToken: _nextPageToken);
+    if (mounted) {
+      setState(() {
+        _shorts.addAll(more);
+        _nextPageToken = more.isNotEmpty ? more.last['nextPageToken'] : null;
+        _loadingMore = false;
+      });
+    }
+  }
+
+  void _initController(int index) {
+    if (index < 0 || index >= _shorts.length) return;
+    if (_controllers.containsKey(index)) return;
+
+    final videoId = _shorts[index]['videoId'] as String? ?? '';
+    if (videoId.isEmpty) return;
+
+    final controller = YoutubePlayerController(
+      initialVideoId: videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: true,
+        mute: false,
+        loop: true,
+        hideControls: true,
+        disableDragSeek: true,
+        enableCaption: false,
+        forceHD: false,
+      ),
+    );
+    _controllers[index] = controller;
+  }
+
+  void _disposeController(int index) {
+    _controllers[index]?.dispose();
+    _controllers.remove(index);
+  }
+
+  void _onPageChanged(int index) {
+    // Init current + neighbours, dispose far ones
+    for (final i in [index - 1, index, index + 1]) {
+      _initController(i);
+    }
+    final keys = _controllers.keys.toList();
+    for (final k in keys) {
+      if ((k - index).abs() > 2) _disposeController(k);
+    }
+
+    // Pause non-visible
+    _controllers.forEach((i, c) {
+      if (i == index) {
+        c.play();
+      } else {
+        c.pause();
+      }
+    });
+
+    // Load more when near end
+    if (index >= _shorts.length - 3) {
+      _loadMore();
+    }
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    _controllers.clear();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final reels = DummyData.reels;
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primary)),
+      );
+    }
+
+    if (_shorts.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.videocam_off, size: 64, color: Colors.white38),
+              const SizedBox(height: 16),
+              const Text('No Shorts available', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: _loadInitial,
+                child: const Text('Retry', style: TextStyle(color: AppTheme.primary)),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: PageView.builder(
         controller: _pageController,
         scrollDirection: Axis.vertical,
-        itemCount: reels.length,
+        itemCount: _shorts.length + (_loadingMore ? 1 : 0),
+        onPageChanged: _onPageChanged,
         itemBuilder: (context, index) {
-          final reel = reels[index];
+          if (index >= _shorts.length) {
+            return const Center(child: CircularProgressIndicator(color: AppTheme.primary));
+          }
+
+          final reel = _shorts[index];
+          final videoId = reel['videoId'] as String? ?? '';
+          final controller = _controllers[index];
+
           return Stack(
             fit: StackFit.expand,
             children: [
-              // Placeholder for video (will use video_player later)
-              Container(
-                color: Colors.grey[900],
-                child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.play_circle_outline, size: 80, color: Colors.white54),
-                      const SizedBox(height: 12),
-                      Text(
-                        reel['caption'] ?? '',
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
+              // YouTube Player
+              if (controller != null && videoId.isNotEmpty)
+                YoutubePlayer(
+                  controller: controller,
+                  showVideoProgressIndicator: false,
+                  width: MediaQuery.of(context).size.width,
+                )
+              else
+                Container(
+                  color: Colors.grey[900],
+                  child: const Center(
+                    child: Icon(Icons.play_circle_outline, size: 80, color: Colors.white38),
+                  ),
+                ),
+
+              // Gradient overlay bottom
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 180,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+                    ),
                   ),
                 ),
               ),
@@ -57,32 +203,16 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
               // Right side actions
               Positioned(
                 right: 12,
-                bottom: 100,
+                bottom: 120,
                 child: Column(
                   children: [
-                    _ActionButton(
-                      icon: Icons.favorite_border,
-                      label: reel['likes'] ?? '0',
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 20),
-                    _ActionButton(
-                      icon: Icons.chat_bubble_outline,
-                      label: reel['comments'] ?? '0',
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 20),
-                    _ActionButton(
-                      icon: Icons.send_outlined,
-                      label: '',
-                      onTap: () {},
-                    ),
-                    const SizedBox(height: 20),
-                    _ActionButton(
-                      icon: Icons.more_vert,
-                      label: '',
-                      onTap: () {},
-                    ),
+                    _ActionButton(icon: Icons.favorite_border, label: 'Like', onTap: () {}),
+                    const SizedBox(height: 18),
+                    _ActionButton(icon: Icons.chat_bubble_outline, label: 'Comment', onTap: () {}),
+                    const SizedBox(height: 18),
+                    _ActionButton(icon: Icons.send_outlined, label: '', onTap: () {}),
+                    const SizedBox(height: 18),
+                    _ActionButton(icon: Icons.more_vert, label: '', onTap: () {}),
                   ],
                 ),
               ),
@@ -91,46 +221,67 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
               Positioned(
                 left: 16,
                 right: 80,
-                bottom: 40,
+                bottom: 50,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: AppTheme.primary,
-                          child: Text(
-                            (reel['username'] as String).substring(0, 1).toUpperCase(),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    GestureDetector(
+                      onTap: () {
+                        final chId = reel['channelId'] as String? ?? '';
+                        if (chId.isNotEmpty) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChannelProfileScreen(
+                                channelId: chId,
+                                initialTitle: reel['channelTitle'] ?? '',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: AppTheme.primary,
+                            child: Text(
+                              ((reel['channelTitle'] as String?) ?? 'Y').isNotEmpty
+                                  ? (reel['channelTitle'] as String).substring(0, 1).toUpperCase()
+                                  : 'Y',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          reel['username'] ?? '',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                          const SizedBox(width: 10),
+                          Flexible(
+                            child: Text(
+                              reel['channelTitle'] ?? '',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.white70),
-                            borderRadius: BorderRadius.circular(6),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.white70),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Follow',
+                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
                           ),
-                          child: const Text(
-                            'Follow',
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      reel['caption'] ?? '',
+                      reel['title'] ?? '',
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -166,10 +317,7 @@ class _ActionButton extends StatelessWidget {
           Icon(icon, color: Colors.white, size: 30),
           if (label.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-            ),
+            Text(label, style: const TextStyle(color: Colors.white, fontSize: 11)),
           ],
         ],
       ),
