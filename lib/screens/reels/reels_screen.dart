@@ -6,7 +6,6 @@ import '../../core/theme/app_theme.dart';
 import '../../services/youtube_service.dart';
 import '../channel/channel_profile_screen.dart';
 
-/// Reels = same vertical feed, guaranteed playable MP4s + YouTube titles
 class ReelsScreen extends ConsumerStatefulWidget {
   const ReelsScreen({super.key});
 
@@ -22,15 +21,20 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
   bool _loading = true;
   int _currentIndex = 0;
 
+  // Unique different videos — no repeat of same one
   static const _mp4s = [
-    'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-    'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
     'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/VolkswagenGTIReview.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4',
+    'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
+    'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
   ];
 
   @override
@@ -48,7 +52,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       for (var i = 0; i < yt.length; i++) {
         list.add({
           'url': _mp4s[i % _mp4s.length],
-          'title': yt[i]['title'] ?? 'Short',
+          'title': yt[i]['title'] ?? 'Short ${i + 1}',
           'channelTitle': yt[i]['channelTitle'] ?? 'Creator',
           'channelId': yt[i]['channelId'] ?? '',
           'thumbnail': yt[i]['thumbnail'] ?? '',
@@ -56,12 +60,11 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       }
     } catch (_) {}
 
-    // Always have playable content
     if (list.isEmpty) {
       for (var i = 0; i < _mp4s.length; i++) {
         list.add({
           'url': _mp4s[i],
-          'title': 'Short ${i + 1}',
+          'title': 'Reel ${i + 1}',
           'channelTitle': 'Pulse',
           'channelId': '',
           'thumbnail': '',
@@ -267,13 +270,17 @@ class _ReelItemState extends State<_ReelItem> {
                         border: Border.all(color: Colors.white70),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text('Follow', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                      child: const Text('Follow',
+                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
-              Text(title, style: const TextStyle(color: Colors.white, fontSize: 14), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(title,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
