@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/youtube_service.dart';
+import '../player/video_player_screen.dart';
 
 class ChannelProfileScreen extends ConsumerStatefulWidget {
   final String channelId;
@@ -45,6 +46,22 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
         _loading = false;
       });
     }
+  }
+
+  void _openVideo(Map<String, dynamic> video) {
+    final videoId = video['videoId'] as String? ?? '';
+    if (videoId.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => VideoPlayerScreen(
+          videoId: videoId,
+          title: video['title'] ?? '',
+          channelTitle: video['channelTitle'] ?? _channel?['title'] ?? '',
+          channelId: video['channelId'] ?? widget.channelId,
+        ),
+      ),
+    );
   }
 
   @override
@@ -166,30 +183,33 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                         return Container(color: AppTheme.surfaceLight);
                       }
                       final s = _shorts[index];
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          if ((s['thumbnail'] as String?)?.isNotEmpty == true)
-                            CachedNetworkImage(
-                              imageUrl: s['thumbnail'],
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(color: AppTheme.surfaceLight),
-                              errorWidget: (_, __, ___) => Container(
+                      return GestureDetector(
+                        onTap: () => _openVideo(s),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if ((s['thumbnail'] as String?)?.isNotEmpty == true)
+                              CachedNetworkImage(
+                                imageUrl: s['thumbnail'],
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => Container(color: AppTheme.surfaceLight),
+                                errorWidget: (_, __, ___) => Container(
+                                  color: AppTheme.surfaceLight,
+                                  child: const Icon(Icons.play_circle_outline, color: Colors.white24),
+                                ),
+                              )
+                            else
+                              Container(
                                 color: AppTheme.surfaceLight,
                                 child: const Icon(Icons.play_circle_outline, color: Colors.white24),
                               ),
-                            )
-                          else
-                            Container(
-                              color: AppTheme.surfaceLight,
-                              child: const Icon(Icons.play_circle_outline, color: Colors.white24),
+                            const Positioned(
+                              bottom: 6,
+                              right: 6,
+                              child: Icon(Icons.play_arrow, color: Colors.white, size: 18),
                             ),
-                          const Positioned(
-                            bottom: 6,
-                            right: 6,
-                            child: Icon(Icons.play_arrow, color: Colors.white, size: 18),
-                          ),
-                        ],
+                          ],
+                        ),
                       );
                     },
                     childCount: _shorts.isEmpty ? 9 : _shorts.length,

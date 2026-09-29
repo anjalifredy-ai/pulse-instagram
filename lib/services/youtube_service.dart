@@ -105,6 +105,7 @@ class YoutubeService {
 
       final data = jsonDecode(res.body);
       final items = data['items'] as List? ?? [];
+      if (items.isEmpty) return _dummyShorts();
 
       return items.map((item) {
         final snippet = item['snippet'] ?? {};
@@ -117,41 +118,81 @@ class YoutubeService {
           'channelTitle': snippet['channelTitle'] ?? '',
           'channelId': snippet['channelId'] ?? channelId,
         };
-      }).toList();
+      }).where((e) => (e['videoId'] as String).isNotEmpty).toList();
     } catch (_) {
       return _dummyShorts();
     }
   }
 
+  /// Trending / popular short videos for Home + Reels
   Future<List<Map<String, dynamic>>> getTrendingShorts({String? pageToken}) async {
     if (!ApiConstants.hasYoutubeKey) return _dummyShorts();
 
     try {
+      // Method 1: search for shorts content (most reliable)
       final url = Uri.parse(
         '${ApiConstants.youtubeBaseUrl}/search'
-        '?part=snippet&type=video&videoDuration=short&order=viewCount'
+        '?part=snippet'
+        '&type=video'
+        '&q=${Uri.encodeComponent("#shorts")}'
+        '&videoDuration=short'
+        '&order=viewCount'
         '&maxResults=15'
         '${pageToken != null ? '&pageToken=$pageToken' : ''}'
         '&key=${ApiConstants.youtubeApiKey}',
       );
       final res = await http.get(url);
-      if (res.statusCode != 200) return _dummyShorts();
 
-      final data = jsonDecode(res.body);
-      final items = data['items'] as List? ?? [];
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final items = data['items'] as List? ?? [];
+        if (items.isNotEmpty) {
+          return items.map((item) {
+            final snippet = item['snippet'] ?? {};
+            final id = item['id'] ?? {};
+            return {
+              'videoId': id['videoId'] ?? '',
+              'title': snippet['title'] ?? '',
+              'thumbnail': snippet['thumbnails']?['high']?['url'] ??
+                  snippet['thumbnails']?['medium']?['url'] ?? '',
+              'channelTitle': snippet['channelTitle'] ?? '',
+              'channelId': snippet['channelId'] ?? '',
+              'nextPageToken': data['nextPageToken'],
+            };
+          }).where((e) => (e['videoId'] as String).isNotEmpty).toList();
+        }
+      }
 
-      return items.map((item) {
-        final snippet = item['snippet'] ?? {};
-        final id = item['id'] ?? {};
-        return {
-          'videoId': id['videoId'] ?? '',
-          'title': snippet['title'] ?? '',
-          'thumbnail': snippet['thumbnails']?['high']?['url'] ?? '',
-          'channelTitle': snippet['channelTitle'] ?? '',
-          'channelId': snippet['channelId'] ?? '',
-          'nextPageToken': data['nextPageToken'],
-        };
-      }).toList();
+      // Method 2 fallback: most popular videos
+      final url2 = Uri.parse(
+        '${ApiConstants.youtubeBaseUrl}/videos'
+        '?part=snippet'
+        '&chart=mostPopular'
+        '&maxResults=15'
+        '&regionCode=IN'
+        '&key=${ApiConstants.youtubeApiKey}',
+      );
+      final res2 = await http.get(url2);
+      if (res2.statusCode == 200) {
+        final data = jsonDecode(res2.body);
+        final items = data['items'] as List? ?? [];
+        if (items.isNotEmpty) {
+          return items.map((item) {
+            final snippet = item['snippet'] ?? {};
+            return {
+              'videoId': item['id'] ?? '',
+              'title': snippet['title'] ?? '',
+              'thumbnail': snippet['thumbnails']?['high']?['url'] ??
+                  snippet['thumbnails']?['medium']?['url'] ?? '',
+              'channelTitle': snippet['channelTitle'] ?? '',
+              'channelId': snippet['channelId'] ?? '',
+              'nextPageToken': null,
+            };
+          }).where((e) => (e['videoId'] as String).isNotEmpty).toList();
+        }
+      }
+
+      return _dummyShorts();
     } catch (_) {
       return _dummyShorts();
     }
@@ -168,19 +209,33 @@ class YoutubeService {
   List<Map<String, dynamic>> _dummyChannels(String query) => [
         {
           'channelId': 'UC_x5XG1OV2P6uZZ5FSM9Ttw',
-          'title': query.isEmpty ? 'Google for Developers' : '$query',
-          'description': 'Sample. API key missing or error.',
+          'title': query.isEmpty ? 'Google for Developers' : query,
+          'description': 'Sample channel',
           'thumbnail': '',
         },
       ];
 
   List<Map<String, dynamic>> _dummyShorts() => [
         {
-          'videoId': 'dQw4w9WgXcQ',
-          'title': 'Sample Short - Add API key for real data',
-          'thumbnail': 'https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg',
-          'channelTitle': 'Sample',
-          'channelId': 'UC_dummy',
+          'videoId': 'jNQXAC9IVRw',
+          'title': 'Me at the zoo',
+          'thumbnail': 'https://i.ytimg.com/vi/jNQXAC9IVRw/hqdefault.jpg',
+          'channelTitle': 'jawed',
+          'channelId': 'UC4QobU6STFB0P71PPvEX1Sg',
+        },
+        {
+          'videoId': 'aqz-KE-bpKQ',
+          'title': 'Big Buck Bunny',
+          'thumbnail': 'https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg',
+          'channelTitle': 'Blender',
+          'channelId': 'UCSMOQeBJ2RAnuFungnQOxLn',
+        },
+        {
+          'videoId': 'LXb3EKWsInQ',
+          'title': 'Costa Rica 4K',
+          'thumbnail': 'https://i.ytimg.com/vi/LXb3EKWsInQ/hqdefault.jpg',
+          'channelTitle': 'Jacob + Katie Schwarz',
+          'channelId': 'UCz0PbBzqTLW1J1ADr34XjlQ',
         },
       ];
 }

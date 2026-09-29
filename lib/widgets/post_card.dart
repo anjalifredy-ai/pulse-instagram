@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../core/theme/app_theme.dart';
 import '../screens/channel/channel_profile_screen.dart';
+import '../screens/player/video_player_screen.dart';
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -24,11 +25,11 @@ class _PostCardState extends State<PostCard> {
     final channel = post['channelTitle'] as String? ?? post['username'] as String? ?? 'User';
     final thumb = post['thumbnail'] as String? ?? '';
     final channelId = post['channelId'] as String? ?? '';
+    final videoId = post['videoId'] as String? ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
@@ -103,29 +104,54 @@ class _PostCardState extends State<PostCard> {
           ),
         ),
 
-        // Thumbnail / Media
-        AspectRatio(
-          aspectRatio: 1,
-          child: thumb.isNotEmpty
-              ? CachedNetworkImage(
-                  imageUrl: thumb,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) => Container(
-                    color: AppTheme.surfaceLight,
-                    child: const Center(child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2)),
+        GestureDetector(
+          onTap: () {
+            if (videoId.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VideoPlayerScreen(
+                    videoId: videoId,
+                    title: title,
+                    channelTitle: channel,
+                    channelId: channelId,
                   ),
-                  errorWidget: (_, __, ___) => Container(
-                    color: AppTheme.surfaceLight,
-                    child: const Icon(Icons.play_circle_outline, size: 64, color: Colors.white24),
-                  ),
-                )
-              : Container(
-                  color: AppTheme.surfaceLight,
-                  child: const Center(child: Icon(Icons.image, size: 64, color: Colors.white24)),
                 ),
+              );
+            }
+          },
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                thumb.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: thumb,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => Container(
+                          color: AppTheme.surfaceLight,
+                          child: const Center(
+                            child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2),
+                          ),
+                        ),
+                        errorWidget: (_, __, ___) => Container(
+                          color: AppTheme.surfaceLight,
+                          child: const Icon(Icons.play_circle_outline, size: 64, color: Colors.white24),
+                        ),
+                      )
+                    : Container(
+                        color: AppTheme.surfaceLight,
+                        child: const Center(child: Icon(Icons.image, size: 64, color: Colors.white24)),
+                      ),
+                const Center(
+                  child: Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
         ),
 
-        // Actions
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
@@ -155,7 +181,6 @@ class _PostCardState extends State<PostCard> {
           ),
         ),
 
-        // Caption
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: RichText(
