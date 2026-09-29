@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'app.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(

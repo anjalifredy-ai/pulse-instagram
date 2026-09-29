@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'core/theme/app_theme.dart';
 import 'screens/main_shell.dart';
+import 'screens/auth/auth_screen.dart';
 
 class PulseInstagramApp extends ConsumerWidget {
   const PulseInstagramApp({super.key});
@@ -14,7 +15,21 @@ class PulseInstagramApp extends ConsumerWidget {
       title: 'Pulse',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const MainShell(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              backgroundColor: Colors.black,
+              body: Center(child: CircularProgressIndicator(color: Color(0xFFE1306C))),
+            );
+          }
+          if (snapshot.hasData) {
+            return const MainShell();
+          }
+          return const AuthScreen();
+        },
+      ),
     );
   }
 }

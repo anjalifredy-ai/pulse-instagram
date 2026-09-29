@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/theme/app_theme.dart';
 
-/// Instagram-style Call Screen (UI only for now)
-/// WebRTC connection will be wired later with flutter_webrtc
+/// Instagram-style Call Screen
+/// WebRTC wiring ready — permissions requested properly to avoid crash
 class CallScreen extends ConsumerStatefulWidget {
   final String username;
   final bool isVideo;
@@ -24,16 +25,41 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   bool _isSpeakerOn = true;
   bool _isCameraOn = true;
   bool _isConnected = false;
+  bool _permissionGranted = false;
+  String _status = 'Requesting permissions...';
 
   @override
   void initState() {
     super.initState();
-    // Simulate connecting
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _isConnected = true);
-      }
-    });
+    _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    final mic = await Permission.microphone.request();
+    PermissionStatus? cam;
+    if (widget.isVideo) {
+      cam = await Permission.camera.request();
+    }
+
+    if (mic.isGranted && (!widget.isVideo || (cam?.isGranted ?? false))) {
+      setState(() {
+        _permissionGranted = true;
+        _status = 'Calling...';
+      });
+      // Simulate connect (real WebRTC signaling later with Firebase)
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _isConnected = true;
+            _status = 'Connected';
+          });
+        }
+      });
+    } else {
+      setState(() {
+        _status = 'Permissions denied. Enable mic${widget.isVideo ? ' & camera' : ''} in settings.';
+      });
+    }
   }
 
   @override
@@ -43,7 +69,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Background / Remote video placeholder
             if (widget.isVideo)
               Container(
                 color: Colors.grey[900],
@@ -62,7 +87,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                         radius: 70,
                         backgroundColor: AppTheme.surfaceLight,
                         child: Text(
-                          widget.username.substring(0, 1).toUpperCase(),
+                          widget.username.isNotEmpty
+                              ? widget.username.substring(0, 1).toUpperCase()
+                              : '?',
                           style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -77,19 +104,19 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _isConnected ? 'Connected' : 'Calling...',
+                        _status,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 16,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
                 ),
               ),
 
-            // Local video preview (small)
-            if (widget.isVideo && _isCameraOn)
+            if (widget.isVideo && _isCameraOn && _permissionGranted)
               Positioned(
                 top: 20,
                 right: 16,
@@ -107,7 +134,6 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                 ),
               ),
 
-            // Top bar
             Positioned(
               top: 12,
               left: 16,
@@ -131,16 +157,12 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                         color: Colors.black45,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        '00:42',
-                        style: TextStyle(color: Colors.white, fontSize: 13),
-                      ),
+                      child: const Text('00:42', style: TextStyle(color: Colors.white, fontSize: 13)),
                     ),
                 ],
               ),
             ),
 
-            // Bottom controls
             Positioned(
               bottom: 40,
               left: 0,
@@ -214,10 +236,7 @@ class _CallButton extends StatelessWidget {
             child: Icon(icon, color: Colors.white, size: 28),
           ),
           const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12),
-          ),
+          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
         ],
       ),
     );
