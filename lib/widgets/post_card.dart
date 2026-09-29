@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../core/theme/app_theme.dart';
+import '../screens/channel/channel_profile_screen.dart';
 
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
@@ -18,6 +20,10 @@ class _PostCardState extends State<PostCard> {
   @override
   Widget build(BuildContext context) {
     final post = widget.post;
+    final title = post['title'] as String? ?? post['caption'] as String? ?? '';
+    final channel = post['channelTitle'] as String? ?? post['username'] as String? ?? 'User';
+    final thumb = post['thumbnail'] as String? ?? '';
+    final channelId = post['channelId'] as String? ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -27,45 +33,66 @@ class _PostCardState extends State<PostCard> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFF58529), Color(0xFFDD2A7B), Color(0xFF8134AF)],
-                  ),
-                ),
-                padding: const EdgeInsets.all(2),
+              GestureDetector(
+                onTap: () {
+                  if (channelId.isNotEmpty) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChannelProfileScreen(
+                          channelId: channelId,
+                          initialTitle: channel,
+                          initialThumbnail: thumb,
+                        ),
+                      ),
+                    );
+                  }
+                },
                 child: Container(
-                  decoration: BoxDecoration(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: AppTheme.surfaceLight,
-                    border: Border.all(color: Colors.black, width: 1.5),
+                    gradient: LinearGradient(
+                      colors: [Color(0xFFF58529), Color(0xFFDD2A7B), Color(0xFF8134AF)],
+                    ),
                   ),
-                  child: Center(
-                    child: Text(
-                      (post['username'] as String).substring(0, 1).toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  padding: const EdgeInsets.all(2),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppTheme.surfaceLight,
+                      border: Border.all(color: Colors.black, width: 1.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        channel.isNotEmpty ? channel.substring(0, 1).toUpperCase() : '?',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      post['username'] as String,
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    if (post['location'] != null)
-                      Text(
-                        post['location'] as String,
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-                      ),
-                  ],
+                child: GestureDetector(
+                  onTap: () {
+                    if (channelId.isNotEmpty) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ChannelProfileScreen(
+                            channelId: channelId,
+                            initialTitle: channel,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    channel,
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
                 ),
               ),
               IconButton(
@@ -76,15 +103,26 @@ class _PostCardState extends State<PostCard> {
           ),
         ),
 
-        // Image / Media
+        // Thumbnail / Media
         AspectRatio(
           aspectRatio: 1,
-          child: Container(
-            color: AppTheme.surfaceLight,
-            child: const Center(
-              child: Icon(Icons.image, size: 64, color: Colors.white24),
-            ),
-          ),
+          child: thumb.isNotEmpty
+              ? CachedNetworkImage(
+                  imageUrl: thumb,
+                  fit: BoxFit.cover,
+                  placeholder: (_, __) => Container(
+                    color: AppTheme.surfaceLight,
+                    child: const Center(child: CircularProgressIndicator(color: AppTheme.primary, strokeWidth: 2)),
+                  ),
+                  errorWidget: (_, __, ___) => Container(
+                    color: AppTheme.surfaceLight,
+                    child: const Icon(Icons.play_circle_outline, size: 64, color: Colors.white24),
+                  ),
+                )
+              : Container(
+                  color: AppTheme.surfaceLight,
+                  child: const Center(child: Icon(Icons.image, size: 64, color: Colors.white24)),
+                ),
         ),
 
         // Actions
@@ -110,59 +148,32 @@ class _PostCardState extends State<PostCard> {
               ),
               const Spacer(),
               IconButton(
-                icon: Icon(
-                  isSaved ? Icons.bookmark : Icons.bookmark_border,
-                  size: 26,
-                ),
+                icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border, size: 26),
                 onPressed: () => setState(() => isSaved = !isSaved),
               ),
             ],
           ),
         ),
 
-        // Likes
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            '${post['likes']} likes',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-        ),
-
         // Caption
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: RichText(
             text: TextSpan(
               style: const TextStyle(color: Colors.white, fontSize: 14),
               children: [
-                TextSpan(
-                  text: '${post['username']} ',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                TextSpan(text: post['caption'] as String),
+                TextSpan(text: '$channel ', style: const TextStyle(fontWeight: FontWeight.w600)),
+                TextSpan(text: title),
               ],
             ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
 
-        // Comments
-        if (post['comments'] != null && (post['comments'] as int) > 0)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'View all ${post['comments']} comments',
-              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 14),
-            ),
-          ),
-
-        // Time
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
-          child: Text(
-            post['time'] as String,
-            style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-          ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
+          child: Text('View comments', style: TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
         ),
 
         const Divider(height: 0.5, thickness: 0.5, color: AppTheme.border),
