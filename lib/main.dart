@@ -8,10 +8,12 @@ import 'app.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  bool firebaseReady = false;
   try {
     await Firebase.initializeApp();
+    firebaseReady = true;
   } catch (e) {
-    debugPrint('Firebase init error: $e');
+    debugPrint('Firebase init failed (continuing without it): $e');
   }
 
   SystemChrome.setSystemUIOverlayStyle(
@@ -24,8 +26,8 @@ void main() async {
   );
 
   runApp(
-    const ProviderScope(
-      child: PulseInstagramApp(),
+    ProviderScope(
+      child: PulseInstagramApp(firebaseReady: firebaseReady),
     ),
   );
 }

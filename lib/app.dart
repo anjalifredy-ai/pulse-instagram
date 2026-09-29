@@ -7,7 +7,9 @@ import 'screens/main_shell.dart';
 import 'screens/auth/auth_screen.dart';
 
 class PulseInstagramApp extends ConsumerWidget {
-  const PulseInstagramApp({super.key});
+  final bool firebaseReady;
+
+  const PulseInstagramApp({super.key, this.firebaseReady = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -15,21 +17,25 @@ class PulseInstagramApp extends ConsumerWidget {
       title: 'Pulse',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Scaffold(
-              backgroundColor: Colors.black,
-              body: Center(child: CircularProgressIndicator(color: Color(0xFFE1306C))),
-            );
-          }
-          if (snapshot.hasData) {
-            return const MainShell();
-          }
-          return const AuthScreen();
-        },
-      ),
+      home: firebaseReady
+          ? StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    backgroundColor: Colors.black,
+                    body: Center(
+                      child: CircularProgressIndicator(color: Color(0xFFE1306C)),
+                    ),
+                  );
+                }
+                if (snapshot.hasData) {
+                  return const MainShell();
+                }
+                return const AuthScreen();
+              },
+            )
+          : const MainShell(), // Firebase fail ho toh seedha app khol do
     );
   }
 }
