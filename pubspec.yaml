@@ -1,5 +1,5 @@
 name: pulse_instagram
-description: Professional Instagram-style social app with YouTube Shorts, Stories, Chats, WebRTC. Legal public data only.
+description: Professional Instagram-style social app with YouTube Shorts, Stories, Chats, WebRTC.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,38 +10,32 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # UI & Icons
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
   flutter_svg: ^2.0.10+1
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
 
-  # State Management
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
 
-  # Navigation
   go_router: ^14.2.0
 
-  # Video / Reels / YouTube
   video_player: ^2.9.1
   chewie: ^1.8.1
   youtube_player_iframe: ^5.1.2
   http: ^1.2.2
+  url_launcher: ^6.3.0
 
-  # WebRTC + Permissions
   flutter_webrtc: ^1.0.0
   permission_handler: ^11.3.1
 
-  # Firebase
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
   cloud_firestore: ^5.4.4
   firebase_storage: ^12.3.4
   firebase_database: ^11.1.4
 
-  # Utils
   intl: ^0.19.0
   uuid: ^4.4.2
   timeago: ^3.6.1

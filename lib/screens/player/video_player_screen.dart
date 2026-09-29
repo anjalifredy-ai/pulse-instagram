@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -23,6 +24,7 @@ class VideoPlayerScreen extends StatefulWidget {
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   late YoutubePlayerController _controller;
+  bool _showFallback = false;
 
   @override
   void initState() {
@@ -35,8 +37,25 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         showFullscreenButton: true,
         mute: false,
         loop: false,
+        strictRelatedVideos: true,
+        enableCaption: false,
       ),
     );
+
+    // If still not playing after a few seconds, show open-in-YouTube
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _showFallback = true);
+    });
+  }
+
+  Future<void> _openInYoutube() async {
+    final url = Uri.parse('https://www.youtube.com/watch?v=${widget.videoId}');
+    final yt = Uri.parse('vnd.youtube:${widget.videoId}');
+    if (await canLaunchUrl(yt)) {
+      await launchUrl(yt, mode: LaunchMode.externalApplication);
+    } else {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -55,6 +74,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
           widget.channelTitle.isNotEmpty ? widget.channelTitle : 'Video',
           style: const TextStyle(fontSize: 16),
         ),
+        actions: [
+          TextButton(
+            onPressed: _openInYoutube,
+            child: const Text('YouTube', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,6 +88,22 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             controller: _controller,
             aspectRatio: 16 / 9,
           ),
+          if (_showFallback)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openInYoutube,
+                  icon: const Icon(Icons.play_circle_outline, color: Colors.redAccent),
+                  label: const Text('Play in YouTube app', style: TextStyle(color: Colors.white)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.white24),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(

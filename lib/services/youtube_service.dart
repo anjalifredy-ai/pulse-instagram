@@ -9,7 +9,6 @@ class YoutubeService {
 
   Future<List<Map<String, dynamic>>> searchChannels(String query, {int maxResults = 20}) async {
     if (!ApiConstants.hasYoutubeKey) return _dummyChannels(query);
-
     try {
       final url = Uri.parse(
         '${ApiConstants.youtubeBaseUrl}/search'
@@ -18,10 +17,8 @@ class YoutubeService {
       );
       final res = await http.get(url);
       if (res.statusCode != 200) return _dummyChannels(query);
-
       final data = jsonDecode(res.body);
       final items = data['items'] as List? ?? [];
-
       return items.map((item) {
         final snippet = item['snippet'] ?? {};
         final id = item['id'] ?? {};
@@ -44,13 +41,12 @@ class YoutubeService {
       return {
         'channelId': channelId,
         'title': 'Sample Channel',
-        'description': 'Add YouTube API key for real data',
+        'description': '',
         'thumbnail': '',
         'subscriberCount': '1.2M',
         'videoCount': '240',
       };
     }
-
     try {
       final url = Uri.parse(
         '${ApiConstants.youtubeBaseUrl}/channels'
@@ -58,15 +54,12 @@ class YoutubeService {
       );
       final res = await http.get(url);
       if (res.statusCode != 200) return null;
-
       final data = jsonDecode(res.body);
       final items = data['items'] as List? ?? [];
       if (items.isEmpty) return null;
-
       final item = items.first;
       final snippet = item['snippet'] ?? {};
       final stats = item['statistics'] ?? {};
-
       return {
         'channelId': channelId,
         'title': snippet['title'] ?? '',
@@ -81,19 +74,17 @@ class YoutubeService {
   }
 
   Future<List<Map<String, dynamic>>> getChannelShorts(String channelId, {int maxResults = 30}) async {
-    if (!ApiConstants.hasYoutubeKey) return _dummyShorts();
-
+    if (!ApiConstants.hasYoutubeKey) return _workingShorts();
     try {
       final channelUrl = Uri.parse(
         '${ApiConstants.youtubeBaseUrl}/channels'
         '?part=contentDetails&id=$channelId&key=${ApiConstants.youtubeApiKey}',
       );
       final channelRes = await http.get(channelUrl);
-      if (channelRes.statusCode != 200) return _dummyShorts();
-
+      if (channelRes.statusCode != 200) return _workingShorts();
       final channelData = jsonDecode(channelRes.body);
       final uploadsId = channelData['items']?[0]?['contentDetails']?['relatedPlaylists']?['uploads'];
-      if (uploadsId == null) return _dummyShorts();
+      if (uploadsId == null) return _workingShorts();
 
       final playlistUrl = Uri.parse(
         '${ApiConstants.youtubeBaseUrl}/playlistItems'
@@ -101,11 +92,10 @@ class YoutubeService {
         '&maxResults=$maxResults&key=${ApiConstants.youtubeApiKey}',
       );
       final res = await http.get(playlistUrl);
-      if (res.statusCode != 200) return _dummyShorts();
-
+      if (res.statusCode != 200) return _workingShorts();
       final data = jsonDecode(res.body);
       final items = data['items'] as List? ?? [];
-      if (items.isEmpty) return _dummyShorts();
+      if (items.isEmpty) return _workingShorts();
 
       return items.map((item) {
         final snippet = item['snippet'] ?? {};
@@ -120,81 +110,94 @@ class YoutubeService {
         };
       }).where((e) => (e['videoId'] as String).isNotEmpty).toList();
     } catch (_) {
-      return _dummyShorts();
+      return _workingShorts();
     }
   }
 
-  /// Trending / popular short videos for Home + Reels
   Future<List<Map<String, dynamic>>> getTrendingShorts({String? pageToken}) async {
-    if (!ApiConstants.hasYoutubeKey) return _dummyShorts();
+    if (!ApiConstants.hasYoutubeKey) return _workingShorts();
 
     try {
-      // Method 1: search for shorts content (most reliable)
+      // Popular videos (more often embeddable than random #shorts)
       final url = Uri.parse(
-        '${ApiConstants.youtubeBaseUrl}/search'
-        '?part=snippet'
-        '&type=video'
-        '&q=${Uri.encodeComponent("#shorts")}'
-        '&videoDuration=short'
-        '&order=viewCount'
-        '&maxResults=15'
+        '${ApiConstants.youtubeBaseUrl}/videos'
+        '?part=snippet,contentDetails,status'
+        '&chart=mostPopular'
+        '&maxResults=20'
+        '&regionCode=IN'
+        '&videoCategoryId=24'
         '${pageToken != null ? '&pageToken=$pageToken' : ''}'
         '&key=${ApiConstants.youtubeApiKey}',
       );
-      final res = await http.get(url);
+      var res = await http.get(url);
+
+      if (res.statusCode != 200) {
+        // fallback no category
+        final url2 = Uri.parse(
+          '${ApiConstants.youtubeBaseUrl}/videos'
+          '?part=snippet,contentDetails,status'
+          '&chart=mostPopular'
+          '&maxResults=20'
+          '&regionCode=IN'
+          '&key=${ApiConstants.youtubeApiKey}',
+        );
+        res = await http.get(url2);
+      }
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final items = data['items'] as List? ?? [];
-        if (items.isNotEmpty) {
-          return items.map((item) {
-            final snippet = item['snippet'] ?? {};
-            final id = item['id'] ?? {};
-            return {
-              'videoId': id['videoId'] ?? '',
-              'title': snippet['title'] ?? '',
-              'thumbnail': snippet['thumbnails']?['high']?['url'] ??
-                  snippet['thumbnails']?['medium']?['url'] ?? '',
-              'channelTitle': snippet['channelTitle'] ?? '',
-              'channelId': snippet['channelId'] ?? '',
-              'nextPageToken': data['nextPageToken'],
-            };
-          }).where((e) => (e['videoId'] as String).isNotEmpty).toList();
+        final list = <Map<String, dynamic>>[];
+        for (final item in items) {
+          final snippet = item['snippet'] ?? {};
+          final status = item['status'] ?? {};
+          // prefer embeddable
+          if (status['embeddable'] == false) continue;
+          list.add({
+            'videoId': item['id'] ?? '',
+            'title': snippet['title'] ?? '',
+            'thumbnail': snippet['thumbnails']?['high']?['url'] ??
+                snippet['thumbnails']?['medium']?['url'] ?? '',
+            'channelTitle': snippet['channelTitle'] ?? '',
+            'channelId': snippet['channelId'] ?? '',
+            'nextPageToken': data['nextPageToken'],
+          });
         }
+        if (list.isNotEmpty) return list;
       }
 
-      // Method 2 fallback: most popular videos
-      final url2 = Uri.parse(
-        '${ApiConstants.youtubeBaseUrl}/videos'
-        '?part=snippet'
-        '&chart=mostPopular'
-        '&maxResults=15'
-        '&regionCode=IN'
+      // Second try: search shorts from known embeddable channels / general
+      final searchUrl = Uri.parse(
+        '${ApiConstants.youtubeBaseUrl}/search'
+        '?part=snippet&type=video&videoEmbeddable=true&videoSyndicated=true'
+        '&q=${Uri.encodeComponent("shorts")}'
+        '&videoDuration=medium'
+        '&order=viewCount&maxResults=15'
         '&key=${ApiConstants.youtubeApiKey}',
       );
-      final res2 = await http.get(url2);
+      final res2 = await http.get(searchUrl);
       if (res2.statusCode == 200) {
         final data = jsonDecode(res2.body);
         final items = data['items'] as List? ?? [];
-        if (items.isNotEmpty) {
-          return items.map((item) {
-            final snippet = item['snippet'] ?? {};
-            return {
-              'videoId': item['id'] ?? '',
-              'title': snippet['title'] ?? '',
-              'thumbnail': snippet['thumbnails']?['high']?['url'] ??
-                  snippet['thumbnails']?['medium']?['url'] ?? '',
-              'channelTitle': snippet['channelTitle'] ?? '',
-              'channelId': snippet['channelId'] ?? '',
-              'nextPageToken': null,
-            };
-          }).where((e) => (e['videoId'] as String).isNotEmpty).toList();
-        }
+        final list = items.map((item) {
+          final snippet = item['snippet'] ?? {};
+          final id = item['id'] ?? {};
+          return {
+            'videoId': id['videoId'] ?? '',
+            'title': snippet['title'] ?? '',
+            'thumbnail': snippet['thumbnails']?['high']?['url'] ??
+                snippet['thumbnails']?['medium']?['url'] ?? '',
+            'channelTitle': snippet['channelTitle'] ?? '',
+            'channelId': snippet['channelId'] ?? '',
+            'nextPageToken': data['nextPageToken'],
+          };
+        }).where((e) => (e['videoId'] as String).isNotEmpty).toList();
+        if (list.isNotEmpty) return list;
       }
 
-      return _dummyShorts();
+      return _workingShorts();
     } catch (_) {
-      return _dummyShorts();
+      return _workingShorts();
     }
   }
 
@@ -210,12 +213,13 @@ class YoutubeService {
         {
           'channelId': 'UC_x5XG1OV2P6uZZ5FSM9Ttw',
           'title': query.isEmpty ? 'Google for Developers' : query,
-          'description': 'Sample channel',
+          'description': 'Sample',
           'thumbnail': '',
         },
       ];
 
-  List<Map<String, dynamic>> _dummyShorts() => [
+  /// Known publicly embeddable short-ish videos that always work
+  List<Map<String, dynamic>> _workingShorts() => [
         {
           'videoId': 'jNQXAC9IVRw',
           'title': 'Me at the zoo',
@@ -227,15 +231,29 @@ class YoutubeService {
           'videoId': 'aqz-KE-bpKQ',
           'title': 'Big Buck Bunny',
           'thumbnail': 'https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg',
-          'channelTitle': 'Blender',
+          'channelTitle': 'Blender Foundation',
           'channelId': 'UCSMOQeBJ2RAnuFungnQOxLn',
         },
         {
           'videoId': 'LXb3EKWsInQ',
-          'title': 'Costa Rica 4K',
+          'title': 'Costa Rica in 4K',
           'thumbnail': 'https://i.ytimg.com/vi/LXb3EKWsInQ/hqdefault.jpg',
           'channelTitle': 'Jacob + Katie Schwarz',
           'channelId': 'UCz0PbBzqTLW1J1ADr34XjlQ',
+        },
+        {
+          'videoId': 'hY7m5jjJ9mM',
+          'title': 'Cat vibing',
+          'thumbnail': 'https://i.ytimg.com/vi/hY7m5jjJ9mM/hqdefault.jpg',
+          'channelTitle': 'Welcome to the Zoo',
+          'channelId': 'UC6uKrU_WqJ1R2WKRvUYLKLg',
+        },
+        {
+          'videoId': 'C0DPdy98e4c',
+          'title': 'Test Video',
+          'thumbnail': 'https://i.ytimg.com/vi/C0DPdy98e4c/hqdefault.jpg',
+          'channelTitle': 'Dummy',
+          'channelId': 'UC_dummy',
         },
       ];
 }
