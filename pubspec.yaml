@@ -27,7 +27,7 @@ dependencies:
   # Video / Reels / YouTube
   video_player: ^2.9.1
   chewie: ^1.8.1
-  youtube_player_flutter: ^9.1.1
+  youtube_player_iframe: ^5.1.2
   http: ^1.2.2
 
   # WebRTC + Permissions

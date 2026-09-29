@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/youtube_service.dart';
@@ -22,7 +22,6 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
   bool _loadingMore = false;
   String? _nextPageToken;
 
-  // Keep controllers for visible pages only
   final Map<int, YoutubePlayerController> _controllers = {};
 
   @override
@@ -64,28 +63,26 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
     final videoId = _shorts[index]['videoId'] as String? ?? '';
     if (videoId.isEmpty) return;
 
-    final controller = YoutubePlayerController(
-      initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
+    final controller = YoutubePlayerController.fromVideoId(
+      videoId: videoId,
+      autoPlay: true,
+      params: const YoutubePlayerParams(
+        showControls: false,
+        showFullscreenButton: false,
         mute: false,
         loop: true,
-        hideControls: true,
-        disableDragSeek: true,
-        enableCaption: false,
-        forceHD: false,
+        strictRelatedVideos: true,
       ),
     );
     _controllers[index] = controller;
   }
 
   void _disposeController(int index) {
-    _controllers[index]?.dispose();
+    _controllers[index]?.close();
     _controllers.remove(index);
   }
 
   void _onPageChanged(int index) {
-    // Init current + neighbours, dispose far ones
     for (final i in [index - 1, index, index + 1]) {
       _initController(i);
     }
@@ -94,16 +91,14 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
       if ((k - index).abs() > 2) _disposeController(k);
     }
 
-    // Pause non-visible
     _controllers.forEach((i, c) {
       if (i == index) {
-        c.play();
+        c.playVideo();
       } else {
-        c.pause();
+        c.pauseVideo();
       }
     });
 
-    // Load more when near end
     if (index >= _shorts.length - 3) {
       _loadMore();
     }
@@ -113,7 +108,7 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
   void dispose() {
     _pageController.dispose();
     for (final c in _controllers.values) {
-      c.dispose();
+      c.close();
     }
     _controllers.clear();
     super.dispose();
@@ -162,18 +157,15 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
           }
 
           final reel = _shorts[index];
-          final videoId = reel['videoId'] as String? ?? '';
           final controller = _controllers[index];
 
           return Stack(
             fit: StackFit.expand,
             children: [
-              // YouTube Player
-              if (controller != null && videoId.isNotEmpty)
+              if (controller != null)
                 YoutubePlayer(
                   controller: controller,
-                  showVideoProgressIndicator: false,
-                  width: MediaQuery.of(context).size.width,
+                  aspectRatio: 9 / 16,
                 )
               else
                 Container(
@@ -183,7 +175,6 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                   ),
                 ),
 
-              // Gradient overlay bottom
               Positioned(
                 left: 0,
                 right: 0,
@@ -200,7 +191,6 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                 ),
               ),
 
-              // Right side actions
               Positioned(
                 right: 12,
                 bottom: 120,
@@ -217,7 +207,6 @@ class _ReelsScreenState extends ConsumerState<ReelsScreen> {
                 ),
               ),
 
-              // Bottom info
               Positioned(
                 left: 16,
                 right: 80,
