@@ -32,8 +32,16 @@ jobs:
           if [ ! -d "android" ]; then
             flutter create . --platforms=android --org com.pulse.instagram --project-name pulse_instagram
           fi
-          # Always remove broken default test that references MyApp
           rm -f test/widget_test.dart
+
+      - name: Copy google-services.json
+        run: |
+          mkdir -p android/app
+          if [ -f "android/app/google-services.json" ]; then
+            echo "google-services.json already present"
+          else
+            echo "Warning: google-services.json missing"
+          fi
 
       - name: Install dependencies
         run: flutter pub get
