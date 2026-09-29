@@ -1,8 +1,11 @@
 class ApiConstants {
-  // YouTube Data API v3 Key
-  // Get free key: https://console.cloud.google.com/apis/credentials
-  // Enable "YouTube Data API v3"
-  static const String youtubeApiKey = 'YOUR_YOUTUBE_DATA_API_KEY_HERE';
+  // Read from --dart-define=YOUTUBE_API_KEY=xxx (GitHub Secret or local)
+  static const String youtubeApiKey = String.fromEnvironment(
+    'YOUTUBE_API_KEY',
+    defaultValue: '',
+  );
+
+  static bool get hasYoutubeKey => youtubeApiKey.isNotEmpty;
 
   static const String youtubeBaseUrl = 'https://www.googleapis.com/youtube/v3';
 }
