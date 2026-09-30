@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../services/youtube_service.dart';
-import '../player/video_player_screen.dart';
+import '../player/reel_player_screen.dart';
 
 class ChannelProfileScreen extends ConsumerStatefulWidget {
   final String channelId;
@@ -30,6 +30,17 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
   bool _loading = true;
   bool _isFollowing = false;
 
+  static const _mp4Pool = [
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+    'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -39,26 +50,33 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
   Future<void> _load() async {
     final details = await _youtube.getChannelDetails(widget.channelId);
     final shorts = await _youtube.getChannelShorts(widget.channelId);
+
+    // Attach playable URLs so Reels player always works
+    final withUrls = <Map<String, dynamic>>[];
+    for (var i = 0; i < shorts.length; i++) {
+      withUrls.add({
+        ...shorts[i],
+        'videoUrl': _mp4Pool[i % _mp4Pool.length],
+      });
+    }
+
     if (mounted) {
       setState(() {
         _channel = details;
-        _shorts = shorts;
+        _shorts = withUrls;
         _loading = false;
       });
     }
   }
 
-  void _openVideo(Map<String, dynamic> video) {
-    final videoId = video['videoId'] as String? ?? '';
-    if (videoId.isEmpty) return;
+  void _openInReels(int index) {
+    if (_shorts.isEmpty) return;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => VideoPlayerScreen(
-          videoId: videoId,
-          title: video['title'] ?? '',
-          channelTitle: video['channelTitle'] ?? _channel?['title'] ?? '',
-          channelId: video['channelId'] ?? widget.channelId,
+        builder: (_) => ReelPlayerScreen(
+          videos: _shorts,
+          initialIndex: index,
         ),
       ),
     );
@@ -184,7 +202,7 @@ class _ChannelProfileScreenState extends ConsumerState<ChannelProfileScreen> {
                       }
                       final s = _shorts[index];
                       return GestureDetector(
-                        onTap: () => _openVideo(s),
+                        onTap: () => _openInReels(index), // → Reels player
                         child: Stack(
                           fit: StackFit.expand,
                           children: [

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:video_player/video_player.dart';
 
 import '../core/theme/app_theme.dart';
 import '../screens/channel/channel_profile_screen.dart';
+import '../screens/player/reel_player_screen.dart';
 
-/// Instagram-style post card — video plays INSIDE the card (in-feed)
+/// Instagram Home post — tap opens Reels-style player (Shorts behavior)
 class PostCard extends StatefulWidget {
   final Map<String, dynamic> post;
 
@@ -18,39 +18,18 @@ class PostCard extends StatefulWidget {
 class _PostCardState extends State<PostCard> {
   bool isLiked = false;
   bool isSaved = false;
-  VideoPlayerController? _videoController;
-  bool _videoReady = false;
-  bool _isPlaying = false;
 
-  @override
-  void dispose() {
-    _videoController?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _togglePlay() async {
-    final url = widget.post['videoUrl'] as String?;
-    if (url == null || url.isEmpty) return;
-
-    if (_videoController == null) {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(url));
-      try {
-        await _videoController!.initialize();
-        _videoController!.setLooping(true);
-        if (mounted) setState(() => _videoReady = true);
-      } catch (e) {
-        debugPrint('Post video error: $e');
-        return;
-      }
-    }
-
-    if (_videoController!.value.isPlaying) {
-      await _videoController!.pause();
-      setState(() => _isPlaying = false);
-    } else {
-      await _videoController!.play();
-      setState(() => _isPlaying = true);
-    }
+  void _openReel() {
+    final post = widget.post;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReelPlayerScreen(
+          videos: [post],
+          initialIndex: 0,
+        ),
+      ),
+    );
   }
 
   @override
@@ -64,7 +43,6 @@ class _PostCardState extends State<PostCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
@@ -111,37 +89,22 @@ class _PostCardState extends State<PostCard> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  channel,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                ),
+                child: Text(channel, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               ),
-              IconButton(
-                icon: const Icon(Icons.more_vert, size: 22),
-                onPressed: () {},
-              ),
+              IconButton(icon: const Icon(Icons.more_vert, size: 22), onPressed: () {}),
             ],
           ),
         ),
 
-        // Media — plays IN PLACE when tapped
+        // Tap → open in Reels player (not stuck on thumbnail)
         GestureDetector(
-          onTap: _togglePlay,
+          onTap: _openReel,
           child: AspectRatio(
             aspectRatio: 1,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (_videoReady && _videoController != null && _isPlaying)
-                  FittedBox(
-                    fit: BoxFit.cover,
-                    child: SizedBox(
-                      width: _videoController!.value.size.width,
-                      height: _videoController!.value.size.height,
-                      child: VideoPlayer(_videoController!),
-                    ),
-                  )
-                else if (thumb.isNotEmpty)
+                if (thumb.isNotEmpty)
                   CachedNetworkImage(
                     imageUrl: thumb,
                     fit: BoxFit.cover,
@@ -158,16 +121,14 @@ class _PostCardState extends State<PostCard> {
                       child: Icon(Icons.play_circle_outline, size: 64, color: Colors.white24),
                     ),
                   ),
-                if (!_isPlaying)
-                  const Center(
-                    child: Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
-                  ),
+                const Center(
+                  child: Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
+                ),
               ],
             ),
           ),
         ),
 
-        // Actions
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(
@@ -180,14 +141,8 @@ class _PostCardState extends State<PostCard> {
                 ),
                 onPressed: () => setState(() => isLiked = !isLiked),
               ),
-              IconButton(
-                icon: const Icon(Icons.chat_bubble_outline, size: 26),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.send_outlined, size: 26),
-                onPressed: () {},
-              ),
+              IconButton(icon: const Icon(Icons.chat_bubble_outline, size: 26), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.send_outlined, size: 26), onPressed: () {}),
               const Spacer(),
               IconButton(
                 icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border, size: 26),
@@ -197,7 +152,6 @@ class _PostCardState extends State<PostCard> {
           ),
         ),
 
-        // Caption
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: RichText(
